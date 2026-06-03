@@ -50,7 +50,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>📈 한국 주식 분석</h1>
+        <div style="text-align:center; margin-bottom:18px;">
+  <a href="index.html" style="color:#f1f5f9; text-decoration:none; font-weight:600;">📈 주식</a>
+  <span style="color:#334155;"> | </span>
+  <a href="coin.html" style="color:#94a3b8; text-decoration:none;">🪙 코인</a>
+</div>
+<h1>📈 한국 주식 분석</h1>
         <div class="subtitle" id="lastUpdate">데이터 불러오는 중...</div>
 
         <div class="notice" id="notice">
@@ -470,5 +475,6 @@
         loadStockData();
         document.getElementById('watchlistTicker').addEventListener('keydown', e => e.key === 'Enter' && addWatchlist());
     </script>
+    <script src="nav.js"></script>
 </body>
 </html>
