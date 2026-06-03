@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis - 주식 분석</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .input-group input, .input-group select, .input-group button {
+            padding: 12px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+        }
+        .input-group input {
+            flex: 1;
+            min-width: 200px;
+        }
+        .input-group input:focus {
+            border-color: #667eea;
+        }
+        .input-group button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .input-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .input-group button:active {
+            transform: translateY(0);
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .metric-label {
+            font-size: 0.85em;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .metric-change {
+            font-size: 0.9em;
+            margin-top: 4px;
+        }
+        .positive {
+            color: #10b981;
+        }
+        .negative {
+            color: #ef4444;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .chart-container h3 {
+            margin-bottom: 16px;
+            color: #374151;
+        }
+        .signal-box {
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .signal-bullish {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .signal-bearish {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .signal-neutral {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            color: white;
+            opacity: 0.7;
+            margin-top: 40px;
+            font-size: 0.9em;
+        }
+        .api-notice {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Stock Analysis</h1>
+            <p>주식 데이터 분석 도구 - SMA 기반 기술적 분석</p>
+        </div>
+
+        <div class="api-notice">
+            ⚠️ 데이터 소스: <strong>Alpha Vantage</strong> (무료 API). API 키가 필요합니다.
+            <a href="https://www.alphavantage.co/support/#api-key" target="_blank">무료 키 받기</a>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <input type="text" id="ticker" placeholder="종목 코드 (예: AAPL, 삼성전자: 005930.KS)" value="AAPL">
+                <select id="period">
+                    <option value="1mo">1개월</option>
+                    <option value="3mo" selected>3개월</option>
+                    <option value="6mo">6개월</option>
+                    <option value="1y">1년</option>
+                    <option value="2y">2년</option>
+                    <option value="5y">5년</option>
+                </select>
+                <button onclick="fetchData()">분석</button>
+            </div>
+
+            <div id="metrics" class="metrics" style="display: none;"></div>
+        </div>
+
+        <div class="chart-container">
+            <h3>📊 가격 차트 (SMA20 / SMA60)</h3>
+            <canvas id="priceChart"></canvas>
+            <div id="signal" class="signal-box signal-neutral" style="display: none;"></div>
+        </div>
+
+        <div class="chart-container">
+            <h3>📊 거래량</h3>
+            <canvas id="volumeChart"></canvas>
+        </div>
+
+        <div class="footer">
+            Stock Analysis Tool | 데이터: Alpha Vantage | Made with Chart.js
+        </div>
+    </div>
+
+    <script>
+        let priceChart = null;
+        let volumeChart = null;
+
+        // Alpha Vantage API 키 (데모 키 - 하루 25회 제한)
+        const API_KEY = 'demo';
+        const BASE_URL = 'https://www.alphavantage.co/query';
+
+        function getAlphaVantageUrl(symbol, period) {
+            const functionName = symbol.includes('.KS') || symbol.includes('.KQ') ? 'TIME_SERIES_DAILY_ADJUSTED' : 'TIME_SERIES_DAILY';
+            const outputSize = period === '1mo' ? 'compact' : 'full';
+            return `${BASE_URL}?function=${functionName}&symbol=${symbol}&outputsize=${outputSize}&apikey=${API_KEY}`;
+        }
+
+        function calculateSMA(data, period) {
+            const sma = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    sma.push(null);
+                    continue;
+                }
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += data[i - j].close;
+                }
+                sma.push(sum / period);
+            }
+            return sma;
+        }
+
+        function filterByPeriod(data, period) {
+            const now = new Date();
+            const cutoff = new Date();
+            switch(period) {
+                case '1mo': cutoff.setMonth(now.getMonth() - 1); break;
+                case '3mo': cutoff.setMonth(now.getMonth() - 3); break;
+                case '6mo': cutoff.setMonth(now.getMonth() - 6); break;
+                case '1y': cutoff.setFullYear(now.getFullYear() - 1); break;
+                case '2y': cutoff.setFullYear(now.getFullYear() - 2); break;
+                case '5y': cutoff.setFullYear(now.getFullYear() - 5); break;
+            }
+            return data.filter(d => new Date(d.date) >= cutoff);
+        }
+
+        async function fetchData() {
+            const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+            const period = document.getElementById('period').value;
+
+            if (!ticker) {
+                alert('종목 코드를 입력해주세요.');
+                return;
+            }
+
+            const metricsEl = document.getElementById('metrics');
+            const signalEl = document.getElementById('signal');
+            metricsEl.style.display = 'none';
+            signalEl.style.display = 'none';
+
+            document.querySelector('.chart-container').insertAdjacentHTML('beforeend', '<div class="loading" id="loading">⏳ 데이터를 불러오는 중...</div>');
+
+            try {
+                const url = getAlphaVantageUrl(ticker, period);
+                const response = await fetch(url);
+                const json = await response.json();
+
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.remove();
+
+                if (json['Error Message'] || json['Note']) {
+                    throw new Error(json['Error Message'] || json['Note'] || 'API 오류');
+                }
+
+                const timeSeriesKey = Object.keys(json).find(k => k.includes('Time Series'));
+                if (!timeSeriesKey) {
+                    throw new Error('데이터를 찾을 수 없습니다.');
+                }
+
+                const rawData = json[timeSeriesKey];
+                let data = Object.entries(rawData).map(([date, values]) => ({
+                    date: date,
+                    open: parseFloat(values['1. open']),
+                    high: parseFloat(values['2. high']),
+                    low: parseFloat(values['3. low']),
+                    close: parseFloat(values['4. close']),
+                    volume: parseInt(values['5. volume'])
+                })).reverse();
+
+                data = filterByPeriod(data, period);
+
+                if (data.length === 0) {
+                    throw new Error('해당 기간에 데이터가 없습니다.');
+                }
+
+                const prices = data.map(d => d.close);
+                const sma20 = calculateSMA(data, 20);
+                const sma60 = calculateSMA(data, 60);
+
+                displayMetrics(data);
+                displayChart(data, prices, sma20, sma60);
+                displayVolumeChart(data);
+                displaySignal(sma20, sma60);
+
+            } catch (error) {
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) loadingEl.remove();
+
+                const errorEl = document.createElement('div');
+                errorEl.className = 'error';
+                errorEl.textContent = `❌ 오류: ${error.message}`;
+                document.querySelector('.card').appendChild(errorEl);
+                setTimeout(() => errorEl.remove(), 5000);
+            }
+        }
+
+        function displayMetrics(data) {
+            const current = data[data.length - 1].close;
+            const first = data[0].close;
+            const change = current - first;
+            const changePercent = (change / first * 100).toFixed(2);
+            const high = Math.max(...data.map(d => d.high));
+            const low = Math.min(...data.map(d => d.low));
+            const periodReturn = ((current - first) / first * 100).toFixed(2);
+
+            const metricsEl = document.getElementById('metrics');
+            metricsEl.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-label">현재가</div>
+                    <div class="metric-value">$${current.toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">기간 수익률</div>
+                    <div class="metric-value ${change >= 0 ? 'positive' : 'negative'}">${changePercent}%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">기간 최고</div>
+                    <div class="metric-value">$${high.toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">기간 최저</div>
+                    <div class="metric-value">$${low.toFixed(2)}</div>
+                </div>
+            `;
+            metricsEl.style.display = 'grid';
+        }
+
+        function displayChart(data, prices, sma20, sma60) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+
+            if (priceChart) priceChart.destroy();
+
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [
+                        {
+                            label: '가격',
+                            data: prices,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'SMA20',
+                            data: sma20,
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0
+                        },
+                        {
+                            label: 'SMA60',
+                            data: sma60,
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            borderDash: [10, 5],
+                            fill: false,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': $' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayVolumeChart(data) {
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+
+            if (volumeChart) volumeChart.destroy();
+
+            const colors = data.map((d, i) => {
+                if (i === 0) return 'rgba(102, 126, 234, 0.8)';
+                return d.close >= data[i-1].close ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)';
+            });
+
+            volumeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.date),
+                    datasets: [{
+                        label: '거래량',
+                        data: data.map(d => d.volume),
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                    if (value >= 1000) return (value/1000).toFixed(1) + 'K';
+                                    return value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displaySignal(sma20, sma60) {
+            const signalEl = document.getElementById('signal');
+            const lastSma20 = sma20.filter(v => v !== null).pop();
+            const lastSma60 = sma60.filter(v => v !== null).pop();
+
+            if (!lastSma20 || !lastSma60) {
+                signalEl.className = 'signal-box signal-neutral';
+                signalEl.innerHTML = '⚠️ 데이터 부족 (SMA 계산 중)';
+            } else if (lastSma20 > lastSma60) {
+                signalEl.className = 'signal-box signal-bullish';
+                signalEl.innerHTML = '🟢 골든크로스 (SMA20 > SMA60) - 매수 신호';
+            } else if (lastSma20 < lastSma60) {
+                signalEl.className = 'signal-box signal-bearish';
+                signalEl.innerHTML = '🔴 데드크로스 (SMA20 < SMA60) - 매도 신호';
+            } else {
+                signalEl.className = 'signal-box signal-neutral';
+                signalEl.innerHTML = '➖ 교차 없음';
+            }
+            signalEl.style.display = 'block';
+        }
+
+        // 페이지 로드시 기본 데이터 로드
+        window.onload = function() {
+            fetchData();
+        };
+    </script>
+</body>
+</html>
