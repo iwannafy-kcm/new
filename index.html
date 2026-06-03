@@ -244,15 +244,18 @@ function saveConfig() { config.watchlist = watchlist; localStorage.setItem(STORA
 function renderWatchlist() {
   const wrap = document.getElementById('watchlistTable');
   if (!watchlist.length) { wrap.innerHTML = '<p class="empty">관심 종목을 추가해주세요.</p>'; return; }
+  const tmap = {};
+  QUICK_TICKERS.forEach(t => tmap[t.code] = t.name);
   const rows = watchlist.map(code => {
     const arr = stockData?.tickers?.[code];
-    if (!arr?.length) return `<tr><td><strong>${code}</strong></td><td colspan="5">데이터 없음 <button class="danger" style="margin-left:8px" onclick="removeWatchlist('${code}')">삭제</button></td></tr>`;
+    if (!arr?.length) return `<tr><td><strong>${code}</strong> ${tmap[code] ? `<span style="color:#94a3b8;font-size:0.9em">(${tmap[code]})</span>` : ''} <button class="danger" style="margin-left:4px;padding:2px 6px;font-size:0.75em" onclick="removeWatchlist('${code}')">삭제</button></td><td colspan="5">데이터 없음</td></tr>`;
     const q = arr[arr.length - 1];
     const prev = arr[arr.length - 2];
     const chg = ((q.close - prev.close) / prev.close) * 100;
     const cls = chg >= 0 ? 'positive' : 'negative';
+    const nameStr = tmap[code] ? `<span style="color:#94a3b8;font-size:0.85em;margin-left:4px;">${tmap[code]}</span>` : '';
     return `<tr>
-      <td><strong>${code}</strong> <button class="danger" style="margin-left:4px;padding:2px 6px;font-size:0.75em" onclick="removeWatchlist('${code}')">삭제</button></td>
+      <td><strong>${code}</strong>${nameStr} <button class="danger" style="margin-left:4px;padding:2px 6px;font-size:0.75em" onclick="removeWatchlist('${code}')">삭제</button></td>
       <td>${toKRW(q.close)}</td>
       <td class="${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
       <td>${toKRW(Math.max(...arr.slice(-30).map(d => d.high)))}</td>
@@ -355,7 +358,9 @@ function renderSummary() {
   if (!stockData || !watchlist.length) { tbody.innerHTML = ''; return; }
   tbody.innerHTML = watchlist.map(code => {
     const arr = stockData.tickers?.[code];
-    if (!arr?.length) return `<tr><td>${code}</td><td colspan="7">데이터 부족</td></tr>`;
+    const tmap = {};
+    QUICK_TICKERS.forEach(t => tmap[t.code] = t.name);
+    if (!arr?.length) return `<tr><td><strong>${code}</strong> ${tmap[code] ? `<span style="color:#94a3b8">(${tmap[code]})</span>` : ''}</td><td colspan="7">데이터 부족</td></tr>`;
     const closes = arr.map(r => r.close);
     const sma20 = calcSMA(closes, 20).filter(v => v !== null).pop();
     const sma60 = calcSMA(closes, 60).filter(v => v !== null).pop();
@@ -367,8 +372,9 @@ function renderSummary() {
     if (rsi < 30) sig = 'BUY';
     else if (rsi > 70) sig = 'SELL';
     if (sma20 && sma60) { if (sma20 > sma60 && sig === 'HOLD') sig = 'BUY'; else if (sma20 < sma60 && sig === 'HOLD') sig = 'SELL'; }
+    const nameStr = tmap[code] ? `<span style="color:#94a3b8;font-size:0.85em">${tmap[code]}</span>` : '';
     return `<tr>
-      <td><strong>${code}</strong></td>
+      <td><strong>${code}</strong>${nameStr}</td>
       <td>${toKRW(cur)}</td>
       <td class="${chg >= 0 ? 'positive' : 'negative'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
       <td>${sma20 ? toKRW(sma20) : '-'}</td>
