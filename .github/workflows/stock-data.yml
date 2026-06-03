@@ -1,0 +1,24 @@
+name: stock-data
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install requests beautifulsoup4 -q
+      - run: python .github/scripts/naver_stock.py
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add stock_data.json
+          git commit -m "update stock data" || true
+          git push

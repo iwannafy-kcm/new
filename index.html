@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>한국 주식 분석</title>
+    <title>한국 주식 분석 (Naver Finance)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        h1 { text-align: center; color: #f1f5f9; margin-bottom: 20px; }
-        .notice { background: #1e293b; border-left: 4px solid #f59e0b; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; }
+        h1 { text-align: center; color: #f1f5f9; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 20px; font-size: 0.9em; }
+        .notice { background: #1e293b; border-left: 4px solid #3b82f6; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9em; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         .card { background: #1e293b; border-radius: 12px; padding: 20px; }
         .card.full { grid-column: 1 / -1; }
@@ -31,64 +32,60 @@
         tr:hover { background: #0f172a; }
         .positive { color: #10b981; }
         .negative { color: #ef4444; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
-        .modal.active { display: flex; }
-        .modal-content { background: #1e293b; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; }
-        .modal-content h2 { margin-bottom: 20px; }
-        .modal-content p { color: #94a3b8; margin-bottom: 16px; line-height: 1.6; }
-        .modal-content a { color: #3b82f6; }
-        .krx-list { background: #0f172a; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 0.9em; }
-        .krx-list div { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #334155; }
-        .krx-list div:hover { background: #1e293b; }
-        .krx-list div:last-child { border-bottom: none; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; }
+        .tag-buy { background: #064e3b; color: #10b981; }
+        .tag-sell { background: #7f1d1d; color: #ef4444; }
+        .tag-hold { background: #78350f; color: #f59e0b; }
+        .krx-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .krx-chip { background: #334155; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; transition: background 0.2s; }
+        .krx-chip:hover { background: #475569; }
+        .krx-chip.in-watchlist { background: #3b82f6; }
+        .last-update { color: #64748b; font-size: 0.85em; }
+        .empty { text-align: center; padding: 40px; color: #64748b; }
+        .error { background: #7f1d1d; color: #fecaca; padding: 12px; border-radius: 8px; margin-top: 12px; }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🇰🇷 한국 주식 분석</h1>
+        <h1>📈 한국 주식 분석</h1>
+        <div class="subtitle" id="lastUpdate">데이터 불러오는 중...</div>
 
         <div class="notice" id="notice">
-            🎯 <strong>데모 모드</strong> — 샘플 데이터로 작동 중입니다. 실제 데이터는 API 키를 입력하세요.
-            <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">API 키 설정</button>
-        </div>
-
-        <!-- API Key Modal -->
-        <div id="apiModal" class="modal">
-            <div class="modal-content">
-                <h2>API 키 설정</h2>
-                <p>데모 모드(내장 샘플 데이터)는 API 키 없이 바로 사용할 수 있습니다.</p>
-                <p>실제 주가 데이터를 사용하려면 Alpha Vantage 키가 필요합니다.</p>
-                <p><a href="https://www.alphavantage.co/support/#api-key" target="_blank">무료 키 발급 →</a></p>
-                <div class="input-row">
-                    <input type="text" id="apiKeyInput" placeholder="API 키 입력 (선택)" style="flex:1;">
-                    <button onclick="saveApiKey()">저장</button>
-                    <button class="secondary" onclick="useDemo()">데모로 계속</button>
-                </div>
-            </div>
+            ✅ <strong>API 키 불필요</strong> — Naver Finance 데이터를 기반으로 작동합니다.
         </div>
 
         <!-- Watchlist -->
         <div class="card">
-            <h2>⭐ 관심 종목 (KRX)</h2>
+            <h2>⭐ 관심 종목</h2>
             <div class="input-row">
-                <input type="text" id="watchlistTicker" placeholder="종목 코드 (예: 005930, 000660)">
+                <input type="text" id="watchlistTicker" placeholder="종목 코드 (예: 005930)">
                 <button onclick="addWatchlist()">추가</button>
-                <button class="secondary" onclick="loadWatchlist()">새로고침</button>
+                <button class="secondary" onclick="saveCurrentAsWatchlist()">현재 차트 저장</button>
             </div>
-            <div class="krx-list">
-                <div onclick="quickAdd('005930')">삼성전자 (005930)</div>
-                <div onclick="quickAdd('000660')">SK하이닉스 (000660)</div>
-                <div onclick="quickAdd('005380')">현대차 (005380)</div>
-                <div onclick="quickAdd('035420')">네이버 (035420)</div>
-                <div onclick="quickAdd('035720')">카카오 (035720)</div>
-                <div onclick="quickAdd('012330')">현대모비스 (012330)</div>
-                <div onclick="quickAdd('051910')">LG화학 (051910)</div>
-                <div onclick="quickAdd('068270')">셀트리온 (068270)</div>
-            </div>
+            <div class="krx-list" id="quickAdd"></div>
             <div id="watchlistTable"></div>
         </div>
 
-        <!-- Multi Chart -->
+        <!-- Single Chart + Signal -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>📈 가격 차트 + 지표</h2>
+            <div class="input-row">
+                <input type="text" id="chartTicker" placeholder="종목 코드" value="005930">
+                <select id="chartRange">
+                    <option value="90">3개월</option>
+                    <option value="180">6개월</option>
+                    <option value="365" selected>1년</option>
+                </select>
+                <button onclick="loadChart()">조회</button>
+            </div>
+            <canvas id="priceChart" style="margin-top:16px;"></canvas>
+            <div id="signalBox" style="margin-top:20px; font-size: 0.95em; color: #94a3b8; line-height: 1.8;"></div>
+        </div>
+
+        <!-- Compare Chart -->
         <div class="card" style="margin-top: 20px;">
             <h2>📊 다중 차트 비교 (정규화)</h2>
             <div class="input-row">
@@ -97,396 +94,359 @@
                 <input type="text" id="compare3" placeholder="종목3" value="005380">
                 <button onclick="loadCompare()">비교</button>
             </div>
-            <canvas id="compareChart" style="margin-top:16px; max-height:250px;"></canvas>
+            <canvas id="compareChart" style="margin-top:16px; max-height:300px;"></canvas>
         </div>
 
-        <!-- Single Chart + Signal -->
-        <div class="grid">
-            <div class="card">
-                <h2>📈 가격 차트 + 지표</h2>
-                <div class="input-row">
-                    <input type="text" id="chartTicker" placeholder="종목 코드" value="005930">
-                    <select id="chartRange">
-                        <option value="3mo">3개월</option>
-                        <option value="6mo">6개월</option>
-                        <option value="1y" selected>1년</option>
-                        <option value="2y">2년</option>
-                    </select>
-                    <button onclick="loadChart()">로드</button>
-                </div>
-                <canvas id="priceChart"></canvas>
-            </div>
-            
-            <div class="card">
-                <h2>🎯 투자 신호</h2>
-                <div id="signalBox" style="text-align:center; padding:40px; color:#64748b;">
-                    차트를 로드하면 신호가 표시됩니다.
-                </div>
-                <div style="margin-top: 20px; font-size: 0.9em; color: #94a3b8;">
-                    <p><strong>KRX 신호 규칙:</strong></p>
-                    <ul style="margin-left: 20px; line-height: 1.8;">
-                        <li>RSI(14): 30 이하 과매도, 70 이상 과매수</li>
-                        <li>SMA20/60: 골든크로스 매수, 데드크로스 매도</li>
-                        <li>MACD: 시그널선 상향돌파 매수, 하향돌파 매도</li>
-                    </ul>
-                </div>
-            </div>
+        <!-- Watchlist Table Full -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>📋 전체 지표 요약</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>종목</th><th>현재가</th><th>변동률</th><th>SMA20</th><th>SMA60</th><th>RSI</th><th>신호</th><th>거래량</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+        </div>
+
+        <div class="subtitle" style="margin-top: 40px; font-size: 0.8em; opacity: 0.6;">
+            데이터 출처: Naver Finance | GitHub Actions로 매일 자동 업데이트
         </div>
     </div>
 
     <script>
-        const STORAGE_KEY = 'krx_stock_dashboard';
+        const STORAGE_KEY = 'krx_stock_v3';
         let config = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        let apiKey = config.apiKey || '';
-        let watchlist = config.watchlist || ['005930', '000660', '005380', '035420'];
-        let isDemo = config.demo !== false;
-        let callCount = 0;
+        let watchlist = config.watchlist || ['005930', '000660', '005380', '035720', '012330', '051910', '068270'];
+        let stockData = null;
         let priceChart = null;
         let compareChart = null;
 
-        function init() {
-            if (!apiKey && isDemo) document.getElementById('apiModal').classList.add('active');
-            updateNotice();
-            loadWatchlist();
+        const QUICK_TICKERS = [
+            { code: '005930', name: '삼성전자' },
+            { code: '000660', name: 'SK하이닉스' },
+            { code: '005380', name: '현대차' },
+            { code: '035420', name: '네이버' },
+            { code: '035720', name: '카카오' },
+            { code: '012330', name: '현대모비스' },
+            { code: '051910', name: 'LG화학' },
+            { code: '068270', name: '셀트리온' },
+        ];
+
+        function formatKRXCode(code) {
+            return code.replace('.KS', '').replace('.KQ', '');
         }
 
-        function updateNotice() {
-            const notice = document.getElementById('notice');
-            if (isDemo) {
-                notice.innerHTML = '🎯 <strong>데모 모드</strong> — 샘플 데이터로 작동 중입니다. <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">API 키 설정</button>';
-            } else {
-                notice.innerHTML = `🔑 <strong>실제 데이터 모드</strong> — API 키: ${apiKey.slice(0,8)}... | 오늘 호출: ${callCount}/25 <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">변경</button>`;
+        function toKRW(n) {
+            return '₩' + Math.round(n).toLocaleString();
+        }
+
+        async function loadStockData() {
+            try {
+                const res = await fetch('stock_data.json');
+                if (!res.ok) throw new Error('stock_data.json을 불러올 수 없습니다.');
+                stockData = await res.json();
+                const el = document.getElementById('lastUpdate');
+                if (el && stockData.updated_at) {
+                    el.textContent = `마지막 업데이트: ${stockData.updated_at}`;
+                }
+            } catch (e) {
+                document.getElementById('lastUpdate').textContent = '❌ ' + e.message;
+                // Use demo data as fallback
+                stockData = generateFallbackData();
             }
+            renderQuickAdd();
+            loadChart();
+            loadCompare();
+            renderSummary();
+            renderWatchlist();
         }
 
-        function openApiModal() {
-            document.getElementById('apiModal').classList.add('active');
-            document.getElementById('apiKeyInput').value = apiKey;
-        }
-
-        function saveApiKey() {
-            const key = document.getElementById('apiKeyInput').value.trim();
-            if (!key) { alert('API 키를 입력해주세요.'); return; }
-            apiKey = key;
-            isDemo = false;
-            config.apiKey = apiKey;
-            config.demo = false;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-            document.getElementById('apiModal').classList.remove('active');
-            updateNotice();
-            loadWatchlist();
-        }
-
-        function useDemo() {
-            isDemo = true;
-            config.demo = true;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-            document.getElementById('apiModal').classList.remove('active');
-            updateNotice();
-            loadWatchlist();
-        }
-
-        function saveConfig() {
-            config.watchlist = watchlist;
-            config.demo = isDemo;
-            config.apiKey = apiKey;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-        }
-
-        // KRX ticker format for Alpha Vantage
-        function formatKRX(ticker) {
-            if (ticker.includes('.KS') || ticker.includes('.KQ')) return ticker;
-            return ticker + '.KS';
-        }
-
-        function formatCurrency(price, isKRX) {
-            if (isKRX) return '₩' + Math.round(price).toLocaleString();
-            return '$' + price.toFixed(2);
-        }
-
-        // Demo data generator
-        function generateDemoKRX(base, days = 365) {
-            const data = [];
-            let price = base;
-            const now = new Date();
-            for (let i = days; i >= 0; i--) {
-                const date = new Date(now);
-                date.setDate(date.getDate() - i);
-                price = price * (1 + (Math.random() - 0.48) * 0.025);
-                data.push({
-                    date: date.toISOString().split('T')[0],
-                    close: price,
-                    high: price * (1 + Math.random() * 0.015),
-                    low: price * (1 - Math.random() * 0.015),
-                    volume: Math.floor(Math.random() * 10000000 + 1000000)
-                });
-            }
-            return data;
-        }
-        const DEMO_KRX = {
-            '005930': generateDemoKRX(72000),
-            '000660': generateDemoKRX(180000),
-            '005380': generateDemoKRX(90000),
-            '035420': generateDemoKRX(220000),
-            '035720': generateDemoKRX(45000),
-            '012330': generateDemoKRX(280000),
-            '051910': generateDemoKRX(450000),
-            '068270': generateDemoKRX(180000)
-        };
-
-        function getDemoQuoteKRX(ticker) {
-            const data = DEMO_KRX[ticker] || generateDemoKRX(50000);
-            const current = data[data.length - 1].close;
-            const prev = data[data.length - 2].close;
+        function generateFallbackData() {
+            const data = {};
+            QUICK_TICKERS.forEach(t => {
+                data[t.code] = generateDemoKRX(t.code, 365);
+            });
             return {
-                ticker,
-                price: current,
-                change: current - prev,
-                changePercent: ((current - prev) / prev) * 100,
-                volume: data[data.length - 1].volume,
-                high: Math.max(...data.slice(-30).map(d => d.high)),
-                low: Math.min(...data.slice(-30).map(d => d.low))
+                updated_at: '데모 모드 (네이버 데이터 아직 수집되지 않음)',
+                tickers: data
             };
         }
 
-        function getDemoSeriesKRX(ticker, days = 365) {
-            if (DEMO_KRX[ticker]) return DEMO_KRX[ticker].slice(-days);
-            return generateDemoKRX(50000, days);
-        }
-
-        // Alpha Vantage call
-        async function alphaQuery(params) {
-            if (callCount >= 25) throw new Error('일일 API 호출 한도(25회) 초과');
-            const url = `https://www.alphavantage.co/query?${new URLSearchParams({...params, apikey: apiKey})}`;
-            const res = await fetch(url);
-            callCount++;
-            updateNotice();
-            if (!res.ok) throw new Error('API 요청 실패');
-            return res.json();
-        }
-
-        // Watchlist
-        async function loadWatchlist() {
-            const table = document.getElementById('watchlistTable');
-            if (watchlist.length === 0) {
-                table.innerHTML = '<p style="color:#64748b; text-align:center; padding:20px;">관심 종목을 추가해주세요.</p>';
-                return;
+        function generateDemoKRX(base, days) {
+            const out = [];
+            let p = base;
+            const now = new Date();
+            for (let i = days; i >= 0; i--) {
+                const d = new Date(now); d.setDate(d.getDate() - i);
+                p = p * (1 + (Math.random() - 0.48) * 0.025);
+                out.push({ date: d.toISOString().split('T')[0], close: p, open: p * 0.999, high: p * 1.01, low: p * 0.99, volume: Math.floor(Math.random() * 10000000 + 1000000) });
             }
-            table.innerHTML = '<table><thead><tr><th>종목</th><th>현재가</th><th>변동률</th><th>거래량</th><th>기간 고</th><th>기간 저</th></tr></thead><tbody id="wlBody"></tbody></table>';
-            const tbody = document.getElementById('wlBody');
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">⏳ 불러오는 중...</td></tr>';
+            return out;
+        }
 
-            const promises = watchlist.map(async ticker => {
-                try {
-                    let quote;
-                    if (isDemo) {
-                        quote = getDemoQuoteKRX(ticker);
-                    } else {
-                        const symbol = formatKRX(ticker);
-                        const data = await alphaQuery({ function: 'GLOBAL_QUOTE', symbol });
-                        if (data['Error Message']) return { ticker, error: data['Error Message'] };
-                        const q = data['Global Quote'];
-                        if (!q || Object.keys(q).length === 0) return { ticker, error: '데이터 없음' };
-                        quote = {
-                            ticker,
-                            price: parseFloat(q['05. price']),
-                            change: parseFloat(q['09. change']),
-                            changePercent: parseFloat(q['10. change percent'].replace('%','')),
-                            volume: q['06. volume']
-                        };
-                    }
-                    return { ...quote, high: quote.high || 0, low: quote.low || 0 };
-                } catch (e) {
-                    return { ticker, error: e.message };
-                }
-            });
-
-            const results = await Promise.all(promises);
-            tbody.innerHTML = results.map(r => {
-                if (r.error) return `<tr><td><strong>${r.ticker}</strong> <button class="danger" onclick="removeWatchlist('${r.ticker}')" style="padding:4px 8px; font-size:0.8em;">삭제</button></td><td colspan="5" style="color:#ef4444;">${r.error}</td></tr>`;
-                const cls = r.change >= 0 ? 'positive' : 'negative';
-                const krx = true;
-                return `<tr>
-                    <td><strong>${r.ticker}</strong> <button class="danger" onclick="removeWatchlist('${r.ticker}')" style="padding:4px 8px; font-size:0.8em;">삭제</button></td>
-                    <td>${formatCurrency(r.price, krx)}</td>
-                    <td class="${cls}">${r.change >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%</td>
-                    <td>${r.volume ? parseInt(r.volume).toLocaleString() : '-'}</td>
-                    <td>${formatCurrency(r.high, krx)}</td>
-                    <td>${formatCurrency(r.low, krx)}</td>
-                </tr>`;
+        // -------- WATCHLIST --------
+        function renderQuickAdd() {
+            const wrap = document.getElementById('quickAdd');
+            wrap.innerHTML = QUICK_TICKERS.map(t => {
+                const inList = watchlist.includes(t.code);
+                return `<span class="krx-chip ${inList ? 'in-watchlist' : ''}" data-code="${t.code}">${t.name} ${t.code}</span>`;
             }).join('');
-        }
 
-        function quickAdd(ticker) {
-            if (!watchlist.includes(ticker)) {
-                watchlist.push(ticker);
-                saveConfig();
-                loadWatchlist();
-            }
+            wrap.querySelectorAll('.krx-chip').forEach(el => {
+                el.onclick = () => {
+                    const code = el.dataset.code;
+                    if (watchlist.includes(code)) {
+                        watchlist = watchlist.filter(w => w !== code);
+                    } else {
+                        watchlist.push(code);
+                    }
+                    saveConfig();
+                    renderQuickAdd();
+                    renderWatchlist();
+                    renderSummary();
+                };
+            });
         }
 
         function addWatchlist() {
             const input = document.getElementById('watchlistTicker');
-            const ticker = input.value.trim();
-            if (!ticker) return;
-            const clean = ticker.replace('.KS', '').replace('.KQ', '');
-            if (watchlist.includes(clean)) { alert('이미 추가된 종목입니다.'); return; }
-            watchlist.push(clean);
+            const code = formatKRXCode(input.value.trim());
+            if (!code) return;
+            if (watchlist.includes(code)) { alert('이미 추가됨'); return; }
+            watchlist.push(code);
             input.value = '';
             saveConfig();
-            loadWatchlist();
+            renderQuickAdd();
+            renderWatchlist();
+            renderSummary();
         }
 
-        function removeWatchlist(ticker) {
-            watchlist = watchlist.filter(t => t !== ticker);
+        function saveCurrentAsWatchlist() {
+            const code = formatKRXCode(document.getElementById('chartTicker').value.trim());
+            if (!code) return;
+            if (!watchlist.includes(code)) {
+                watchlist.push(code);
+                saveConfig();
+                renderQuickAdd();
+                renderWatchlist();
+                renderSummary();
+            }
+        }
+
+        function saveConfig() {
+            config.watchlist = watchlist;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        }
+
+        function renderWatchlist() {
+            const wrap = document.getElementById('watchlistTable');
+            if (!watchlist.length) {
+                wrap.innerHTML = '<p class="empty">관심 종목을 추가해주세요.</p>';
+                return;
+            }
+            const rows = watchlist.map(code => {
+                const quote = getLatestQuote(code);
+                if (!quote) {
+                    return `<tr><td><strong>${code}</strong></td><td colspan="5">데이터 없음 <button class="danger" style="margin-left:8px" onclick="removeWatchlist('${code}')">삭제</button></td></tr>`;
+                }
+                const prices = getPrices(code, 2);
+                const prev = prices.length >= 2 ? prices[prices.length - 2] : quote.close;
+                const chg = ((quote.close - prev) / prev) * 100;
+                const cls = chg >= 0 ? 'positive' : 'negative';
+                return `<tr>
+                    <td><strong>${code}</strong> <button class="danger" style="margin-left:4px;padding:2px 6px;font-size:0.75em" onclick="removeWatchlist('${code}')">삭제</button></td>
+                    <td>${toKRW(quote.close)}</td>
+                    <td class="${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
+                    <td>${quote.high || '-'}</td>
+                    <td>${quote.low || '-'}</td>
+                    <td>${quote.volume ? parseInt(quote.volume).toLocaleString() : '-'}</td>
+                </tr>`;
+            }).join('');
+            wrap.innerHTML = `<table><thead><tr><th>종목</th><th>현재가</th><th>변동률</th><th>기간 고</th><th>기간 저</th><th>거래량</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        function removeWatchlist(code) {
+            watchlist = watchlist.filter(w => w !== code);
             saveConfig();
-            loadWatchlist();
+            renderQuickAdd();
+            renderWatchlist();
+            renderSummary();
         }
 
-        // Compare chart
+        function getLatestQuote(code) {
+            const arr = stockData?.tickers?.[code];
+            if (!arr || !arr.length) return null;
+            const last = arr[arr.length - 1];
+            return { close: last.close, high: last.high, low: last.low, volume: last.volume };
+        }
+
+        function getPrices(code, count) {
+            const arr = stockData?.tickers?.[code];
+            if (!arr || !arr.length) return [];
+            return arr.slice(-count).map(r => r.close);
+        }
+
+        // -------- COMPARE --------
         async function loadCompare() {
-            const tickers = [document.getElementById('compare1').value, document.getElementById('compare2').value, document.getElementById('compare3').value].filter(Boolean).map(t => t.replace('.KS','').replace('.KQ',''));
-            if (tickers.length < 2) { alert('2개 이상의 종목을 입력해주세요.'); return; }
+            const codes = [document.getElementById('compare1').value.trim(), document.getElementById('compare2').value.trim(), document.getElementById('compare3').value.trim()].map(formatKRXCode).filter(Boolean);
+            if (codes.length < 2) { alert('2개 이상 입력'); return; }
 
             const ctx = document.getElementById('compareChart').getContext('2d');
             if (compareChart) compareChart.destroy();
 
-            const datasets = [];
             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-            
-            for (let i = 0; i < tickers.length; i++) {
-                try {
-                    let series;
-                    if (isDemo) {
-                        series = getDemoSeriesKRX(tickers[i], 90);
-                    } else {
-                        const data = await alphaQuery({ function: 'TIME_SERIES_DAILY', symbol: formatKRX(tickers[i]), outputsize: 'full' });
-                        const key = Object.keys(data).find(k => k.includes('Time Series'));
-                        if (!key) { console.warn(tickers[i], '데이터 없음'); continue; }
-                        const raw = data[key];
-                        const dates = Object.keys(raw).sort();
-                        series = dates.slice(-90).map(d => ({ date: d, close: parseFloat(raw[d]['4. close']) }));
-                    }
-                    const base = series[0].close;
-                    const normalized = series.map(d => (d.close / base * 100));
-                    datasets.push({
-                        label: tickers[i],
-                        data: normalized,
-                        borderColor: colors[i % colors.length],
-                        borderWidth: 2,
-                        tension: 0.1,
-                        pointRadius: 0,
-                        fill: false
-                    });
-                } catch (e) {
-                    console.error(tickers[i], e.message);
-                }
+            const datasets = [];
+
+            codes.forEach((code, i) => {
+                const arr = stockData?.tickers?.[code];
+                if (!arr || !arr.length) return;
+                const base = arr[0].close;
+                const norm = arr.map(r => ({ x: r.date, y: (r.close / base) * 100 }));
+                datasets.push({
+                    label: code,
+                    data: norm,
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 2,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    fill: false
+                });
+            });
+
+            if (!datasets.length) {
+                document.getElementById('compareChart').parentElement.innerHTML = '<p class="error">비교할 데이터가 없습니다.</p>';
+                return;
             }
 
             compareChart = new Chart(ctx, {
                 type: 'line',
-                data: { labels: datasets[0]?.data?.map((_, i) => i + '일') || [], datasets },
+                data: { datasets },
                 options: {
                     responsive: true,
                     plugins: { legend: { labels: { color: '#e2e8f0' } }, title: { display: true, text: '정규화 가격 비교 (시작=100)', color: '#f1f5f9' } },
                     scales: {
-                        x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
+                        x: { type: 'time', time: { unit: 'month' }, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
                         y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
                     }
                 }
             });
         }
 
-        // Single chart + signals
+        // -------- SINGLE CHART --------
         async function loadChart() {
-            const ticker = document.getElementById('chartTicker').value.trim().replace('.KS','').replace('.KQ','');
-            const range = document.getElementById('chartRange').value;
-            if (!ticker) return;
+            const code = formatKRXCode(document.getElementById('chartTicker').value.trim());
+            const range = parseInt(document.getElementById('chartRange').value, 10);
+            if (!code) return;
+
+            const arr = stockData?.tickers?.[code];
+            if (!arr || !arr.length) {
+                document.getElementById('signalBox').innerHTML = '<div class="error">해당 종목 데이터가 없습니다.</div>';
+                return;
+            }
+
+            const slice = arr.slice(-range);
+            const closes = slice.map(r => r.close);
+            const dates = slice.map(r => r.date);
+            const sma20 = calcSMA(closes, 20);
+            const sma60 = calcSMA(closes, 60);
+            const rsi = calcRSI(closes, 14);
+
+            const lastRSI = rsi[rsi.length - 1];
+            const lastSMA20 = sma20.filter(v => v !== null).pop();
+            const lastSMA60 = sma60.filter(v => v !== null).pop();
+            let signal = 'HOLD', emoji = '➖', reasons = [];
+
+            if (lastRSI < 30) { signal = 'BUY'; emoji = '🟢'; reasons.push('RSI 과매도'); }
+            else if (lastRSI > 70) { signal = 'SELL'; emoji = '🔴'; reasons.push('RSI 과매수'); }
+
+            if (lastSMA20 && lastSMA60) {
+                if (lastSMA20 > lastSMA60) { if (signal === 'HOLD') { signal = 'BUY'; emoji = '🟢'; } reasons.push('골든크로스'); }
+                else if (lastSMA20 < lastSMA60) { if (signal === 'HOLD') { signal = 'SELL'; emoji = '🔴'; } reasons.push('데드크로스'); }
+            }
+
+            const sigCls = signal === 'BUY' ? 'positive' : signal === 'SELL' ? 'negative' : '';
+            document.getElementById('signalBox').innerHTML = `
+                <span class="tag tag-${signal.toLowerCase()}" style="font-size:1em; padding:4px 10px;">${emoji} ${signal}</span>
+                <span style="margin-left:8px;">RSI: <strong>${lastRSI.toFixed(1)}</strong></span>
+                <span style="margin-left:8px; color:#64748b;">| ${reasons.join(', ') || '신호 없음'}</span>
+                <span style="float:right; color:#64748b;">현재가: <strong>${toKRW(closes[closes.length-1])}</strong></span>
+            `;
 
             const ctx = document.getElementById('priceChart').getContext('2d');
             if (priceChart) priceChart.destroy();
 
-            try {
-                let series;
-                if (isDemo) {
-                    series = getDemoSeriesKRX(ticker, 365);
-                } else {
-                    const data = await alphaQuery({ function: 'TIME_SERIES_DAILY', symbol: formatKRX(ticker), outputsize: range === '3mo' ? 'compact' : 'full' });
-                    const key = Object.keys(data).find(k => k.includes('Time Series'));
-                    if (!key) throw new Error('데이터를 찾을 수 없습니다.');
-                    const raw = data[key];
-                    const dates = Object.keys(raw).sort();
-                    series = dates.map(d => ({ date: d, close: parseFloat(raw[d]['4. close']) }));
-                }
-
-                const closes = series.map(d => d.close);
-                const dates = series.map(d => d.date);
-                const sma20 = calcSMA(closes, 20);
-                const sma60 = calcSMA(closes, 60);
-                const rsi = calcRSI(closes, 14);
-                const macd = calcMACD(closes);
-
-                const lastRSI = rsi[rsi.length - 1];
-                const lastSMA20 = sma20.filter(v => v !== null).pop();
-                const lastSMA60 = sma60.filter(v => v !== null).pop();
-                let signal = 'HOLD', signalEmoji = '➖', reasons = [];
-                
-                if (lastRSI < 30) { signal = 'BUY'; signalEmoji = '🟢'; reasons.push('RSI 과매도'); }
-                else if (lastRSI > 70) { signal = 'SELL'; signalEmoji = '🔴'; reasons.push('RSI 과매수'); }
-                
-                if (lastSMA20 && lastSMA60) {
-                    if (lastSMA20 > lastSMA60) { if (signal === 'HOLD') { signal = 'BUY'; signalEmoji = '🟢'; } reasons.push('골든크로스'); }
-                    else if (lastSMA20 < lastSMA60) { if (signal === 'HOLD') { signal = 'SELL'; signalEmoji = '🔴'; } reasons.push('데드크로스'); }
-                }
-
-                if (macd.line[macd.line.length - 1] > macd.signal[macd.signal.length - 1] && signal === 'HOLD') {
-                    signal = 'BUY'; signalEmoji = '🟢'; reasons.push('MACD 매수');
-                } else if (macd.line[macd.line.length - 1] < macd.signal[macd.signal.length - 1] && signal === 'HOLD') {
-                    signal = 'SELL'; signalEmoji = '🔴'; reasons.push('MACD 매도');
-                }
-
-                document.getElementById('signalBox').innerHTML = `
-                    <div style="font-size:1.8em; margin-bottom:8px;">${signalEmoji} ${signal}</div>
-                    <div style="font-size:0.9em; color:#94a3b8;">RSI: ${lastRSI.toFixed(1)} | ${reasons.join(', ')}</div>
-                `;
-
-                priceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [
-                            { label: '가격', data: closes, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2, fill: true },
-                            { label: 'SMA20', data: sma20, borderColor: '#f59e0b', borderWidth: 2, borderDash: [5,5], fill: false },
-                            { label: 'SMA60', data: sma60, borderColor: '#ef4444', borderWidth: 2, borderDash: [10,5], fill: false },
-                            { label: 'RSI', data: rsi, borderColor: '#a855f7', borderWidth: 1.5, yAxisID: 'y1', pointRadius: 0 }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: { legend: { labels: { color: '#e2e8f0' } } },
-                        scales: {
-                            x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
-                            y: { ticks: { color: '#94a3b8', callback: v => '₩' + Math.round(v).toLocaleString() }, grid: { color: '#334155' } },
-                            y1: { position: 'right', min: 0, max: 100, ticks: { color: '#a855f7' }, grid: { drawOnChartArea: false } }
-                        }
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: code, data: closes, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2, fill: true },
+                        { label: 'SMA20', data: sma20, borderColor: '#f59e0b', borderWidth: 2, borderDash: [5,5], fill: false },
+                        { label: 'SMA60', data: sma60, borderColor: '#ef4444', borderWidth: 2, borderDash: [10,5], fill: false },
+                        { label: 'RSI', data: rsi, borderColor: '#a855f7', borderWidth: 1.5, yAxisID: 'y1', pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#e2e8f0' } } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { color: '#334155' } },
+                        y: { ticks: { color: '#94a3b8', callback: v => '₩' + Math.round(v).toLocaleString() }, grid: { color: '#334155' } },
+                        y1: { position: 'right', min: 0, max: 100, ticks: { color: '#a855f7' }, grid: { drawOnChartArea: false } }
                     }
-                });
-            } catch (e) {
-                document.getElementById('signalBox').innerHTML = `<div style="color:#ef4444;">❌ ${e.message}</div>`;
-            }
+                }
+            });
         }
 
-        // Tech indicators
+        // -------- SUMMARY --------
+        function renderSummary() {
+            const tbody = document.getElementById('summaryBody');
+            if (!stockData || !watchlist.length) { tbody.innerHTML = ''; return; }
+
+            tbody.innerHTML = watchlist.map(code => {
+                const arr = stockData.tickers?.[code];
+                if (!arr || arr.length < 60) return `<tr><td>${code}</td><td colspan="7">데이터 부족</td></tr>`;
+                const closes = arr.map(r => r.close);
+                const sma20 = calcSMA(closes, 20).filter(v => v !== null).pop();
+                const sma60 = calcSMA(closes, 60).filter(v => v !== null).pop();
+                const rsi = calcRSI(closes, 14).filter(v => v !== null).pop();
+                const cur = closes[closes.length - 1];
+                const prev = closes[closes.length - 2];
+                const chg = ((cur - prev) / prev) * 100;
+                const cls = chg >= 0 ? 'positive' : 'negative';
+                let sig = 'HOLD';
+                if (rsi < 30) sig = 'BUY';
+                else if (rsi > 70) sig = 'SELL';
+                if (sma20 && sma60) {
+                    if (sma20 > sma60 && sig === 'HOLD') sig = 'BUY';
+                    else if (sma20 < sma60 && sig === 'HOLD') sig = 'SELL';
+                }
+                return `<tr>
+                    <td><strong>${code}</strong></td>
+                    <td>${toKRW(cur)}</td>
+                    <td class="${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
+                    <td>${sma20 ? toKRW(sma20) : '-'}</td>
+                    <td>${sma60 ? toKRW(sma60) : '-'}</td>
+                    <td>${rsi.toFixed(1)}</td>
+                    <td><span class="tag tag-${sig.toLowerCase()}">${sig}</span></td>
+                    <td>${arr[arr.length-1].volume.toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // -------- INDICATORS --------
         function calcSMA(data, period) {
-            const sma = [];
+            const out = [];
             for (let i = 0; i < data.length; i++) {
-                if (i < period - 1) { sma.push(null); continue; }
+                if (i < period - 1) { out.push(null); continue; }
                 let sum = 0;
                 for (let j = 0; j < period; j++) sum += data[i - j];
-                sma.push(sum / period);
+                out.push(sum / period);
             }
-            return sma;
+            return out;
         }
 
         function calcRSI(data, period = 14) {
@@ -494,43 +454,21 @@
             for (let i = 1; i < data.length; i++) changes.push(data[i] - data[i-1]);
             const gains = changes.map(c => c > 0 ? c : 0);
             const losses = changes.map(c => c < 0 ? -c : 0);
-            let avgGain = gains.slice(0, period).reduce((a,b) => a+b, 0) / period;
-            let avgLoss = losses.slice(0, period).reduce((a,b) => a+b, 0) / period;
+            let avgG = gains.slice(0, period).reduce((a,b) => a+b, 0) / period;
+            let avgL = losses.slice(0, period).reduce((a,b) => a+b, 0) / period;
             const rsi = [null, ...Array(period).fill(50)];
             for (let i = period; i < data.length; i++) {
-                avgGain = (avgGain * (period - 1) + gains[i-1]) / period;
-                avgLoss = (avgLoss * (period - 1) + losses[i-1]) / period;
-                const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                avgG = (avgG * (period - 1) + gains[i-1]) / period;
+                avgL = (avgL * (period - 1) + losses[i-1]) / period;
+                const rs = avgL === 0 ? 100 : avgG / avgL;
                 rsi.push(100 - 100 / (1 + rs));
             }
             return rsi;
         }
 
-        function calcMACD(data) {
-            const ema12 = calcEMA(data, 12);
-            const ema26 = calcEMA(data, 26);
-            const macdLine = ema12.map((v, i) => v !== null && ema26[i] !== null ? v - ema26[i] : null);
-            const signalLine = calcEMA(macdLine.filter(v => v !== null), 9);
-            return { line: macdLine, signal: signalLine };
-        }
-
-        function calcEMA(data, period) {
-            const ema = [];
-            const multiplier = 2 / (period + 1);
-            for (let i = 0; i < data.length; i++) {
-                if (i === 0) { ema.push(data[i]); continue; }
-                if (data[i] === null) { ema.push(null); continue; }
-                const prevEma = ema[i - 1];
-                if (prevEma === null) { ema.push(data[i]); continue; }
-                ema.push((data[i] - prevEma) * multiplier + prevEma);
-            }
-            return ema;
-        }
-
-        document.getElementById('apiKeyInput')?.addEventListener('keydown', e => e.key === 'Enter' && saveApiKey());
-        document.getElementById('watchlistTicker')?.addEventListener('keydown', e => e.key === 'Enter' && addWatchlist());
-        
-        init();
+        // Init
+        loadStockData();
+        document.getElementById('watchlistTicker').addEventListener('keydown', e => e.key === 'Enter' && addWatchlist());
     </script>
 </body>
 </html>
