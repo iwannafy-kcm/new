@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Coin Dash - CoinGecko</title>
+<title>Coin Dash</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
@@ -15,25 +15,25 @@
   nav a.secondary { color:#b8c6db; background: transparent; }
   .card { background: #12243a; border-radius: 14px; padding: 18px; margin-bottom: 16px; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  input, button { padding: 10px 12px; border-radius: 10px; border: 1px solid #1f3350; background:#0b1220; color:#e6eef8; }
-  button { background:#2260c4; border: none; font-weight: 700; cursor: pointer; }
+  button { padding: 10px 12px; border-radius: 10px; border: 1px solid #1f3350; background:#0b1220; color:#e6eef8; cursor: pointer; }
+  button { background:#2260c4; border: none; font-weight: 700; }
   ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   li { background:#0f2137; padding: 8px 12px; border-radius: 999px; cursor: pointer; font-size: 14px; }
   li.active { background:#2260c4; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #1f3350; }
   .plus { color: #10b981; } .minus { color: #ef4444; }
   .hint { color:#8aa3bf; font-size: 13px; }
   canvas { max-height: 320px; }
-  @media (max-width: 760px) { .row { grid-template-columns: 1fr; } }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meta-item { background:#0f2137; padding: 10px 12px; border-radius: 10px; }
+  @media (max-width: 760px) { .row { grid-template-columns: 1fr; } .meta-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <nav>
     <a href="index.html">📈 주식</a>
-    <a href="coin.html" class="secondary">🪙 코인</a>
-    <span style="margin-left:auto; color:#6b82a6; font-size:13px;">CoinGecko 기반</span>
+    <a href="coin.html">🪙 코인</a>
+    <span style="margin-left:auto; color:#6b82a6; font-size:13px;">CoinGecko</span>
   </nav>
 
   <h1 style="margin-bottom:6px;">🪙 Coin Dashboard</h1>
@@ -57,7 +57,7 @@
 
   <div class="card">
     <h2>정보</h2>
-    <div id="meta" class="hint">종목을 선택하세요.</div>
+    <div id="meta" class="hint">로딩 중...</div>
   </div>
 </div>
 
@@ -78,33 +78,59 @@ const COIN_NAMES = {
   btc:'BTC', eth:'ETH', bnb:'BNB', sol:'SOL', xrp:'XRP', ada:'ADA', avax:'AVAX', dot:'DOT', link:'LINK', matic:'MATIC'
 };
 
-let state = { coinId: 'bitcoin', days: 365, chart: null, volChart: null };
-
+let state = { symbol: 'btc', chart: null, volChart: null, data: null };
 function $(sel) { return document.querySelector(sel); }
-function fmt(n, d=2) { return n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function fmt(n, d=2) { return Number(n).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }); }
 
-async function load(id) {
-  state.coinId = id || state.coinId;
-  const days = state.days;
-  const url = `https://api.coingecko.com/api/v3/coins/${state.coinId}/market_chart?vs_currency=usd&days=${days}`;
+async function load(symbol) {
+  state.symbol = symbol || state.symbol;
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('API 요청 실패');
-    const json = await res.json();
-    $('lastUpdate').textContent = '업데이트: ' + new Date().toLocaleString('ko-KR');
-    renderCharts(json);
-    renderMeta(state.coinId);
+    const res = await fetch('crypto_data.json');
+    if (!res.ok) throw new Error('crypto_data.json을 불러올 수 없습니다.');
+    state.data = await res.json();
+    $('lastUpdate').textContent = '업데이트: ' + (state.data.updated_at || '-');
+    renderList();
+    renderChart();
+    renderMeta();
   } catch (e) {
     $('lastUpdate').textContent = '❌ ' + e.message;
+    $('meta').textContent = '데이터가 없습니다.';
   }
 }
 
-function renderCharts({ prices, total_volumes }) {
-  const labels = prices.map(p => new Date(p[0]));
-  const values = prices.map(p => p[1]);
-  const vols = total_volumes.map(v => v[1]);
+function renderList() {
+  const wrap = $('coinList');
+  const coins = state.data?.coins || {};
+  wrap.innerHTML = Object.keys(COIN_NAMES).map(k => {
+    const active = k === state.symbol ? 'active' : '';
+    const exists = coins[k] ? '' : ' style="opacity:0.5"';
+    return `<li class="${active}"${exists} data-key="${k}">${COIN_NAMES[k]}</li>`;
+  }).join('');
+  wrap.querySelectorAll('li').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.key;
+      if (!state.data?.coins?.[key]) return;
+      state.symbol = key;
+      renderList();
+      renderChart();
+      renderMeta();
+    };
+  });
+}
 
-  const sma20 = calcSMA(values, 20);
+function renderChart() {
+  const coin = state.data?.coins?.[state.symbol];
+  if (!coin || !coin.prices?.length) {
+    $('priceChart').parentElement.innerHTML = '<p class="hint">데이터가 부족합니다.</p>';
+    $('volChart').parentElement.innerHTML = '<p class="hint">데이터가 부족합니다.</p>';
+    return;
+  }
+
+  const labels = coin.prices.map(p => new Date(p[0]));
+  const values = coin.prices.map(p => p[1]);
+  const vols = (coin.volumes || []).map(v => v[1]);
+
+  const sma = calcSMA(values, 20);
 
   if (state.chart) state.chart.destroy();
   if (state.volChart) state.volChart.destroy();
@@ -115,48 +141,51 @@ function renderCharts({ prices, total_volumes }) {
       labels,
       datasets: [
         { label: 'Price', data: values, borderColor: '#7aa7ff', backgroundColor: 'rgba(122,167,255,0.08)', borderWidth: 2, fill: true, pointRadius: 0 },
-        { label: 'SMA20', data: sma20, borderColor: '#f5a623', borderWidth: 2, borderDash: [5,5], fill: false, pointRadius: 0 }
+        { label: 'SMA20', data: sma, borderColor: '#f5a623', borderWidth: 2, borderDash: [5,5], fill: false, pointRadius: 0 }
       ]
     },
-    options: chartOpts('USD')
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#cdd8e4' } } },
+      scales: {
+        x: { ticks: { color: '#8aa3bf', maxTicksLimit: 8 }, grid: { color: '#142540' } },
+        y: { ticks: { color: '#8aa3bf', callback: v => '$' + fmt(v) }, grid: { color: '#142540' } }
+      }
+    }
   });
 
   state.volChart = new Chart($('volChart'), {
     type: 'bar',
     data: { labels, datasets: [{ label: 'Volume', data: vols, backgroundColor: 'rgba(122,167,255,0.35)', borderColor: '#7aa7ff', borderWidth: 1 }] },
-    options: chartOpts('')
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#cdd8e4' } } },
+      scales: {
+        x: { ticks: { color: '#8aa3bf', maxTicksLimit: 8 }, grid: { color: '#142540' } },
+        y: { ticks: { color: '#8aa3bf' }, grid: { color: '#142540' } }
+      }
+    }
   });
 }
 
-function chartOpts(unit) {
-  return {
-    responsive: true,
-    interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { labels: { color: '#cdd8e4' } } },
-    scales: {
-      x: { ticks: { color: '#8aa3bf', maxTicksLimit: 8 }, grid: { color: '#142540' } },
-      y: { ticks: { color: '#8aa3bf', callback: v => unit === 'USD' ? '$' + fmt(v) : '' }, grid: { color: '#142540' } }
-    }
-  };
-}
-
-async function renderMeta(id) {
-  try {
-    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false`);
-    const info = await res.json();
-    const m = info.market_data || {};
-    $('meta').innerHTML = `
-      <strong>${info.name} (${info.symbol?.toUpperCase()})</strong><br><br>
-      현재가: ${fmt(m.current_price?.usd, m.current_price?.usd < 1 ? 6 : 2)} USD<br>
-      24h: <span class="${m.price_change_percentage_24h >= 0 ? 'plus' : 'minus'}">${fmt(m.price_change_percentage_24h)}%</span><br>
-      7일: <span class="${m.price_change_percentage_7d >= 0 ? 'plus' : 'minus'}">${fmt(m.price_change_percentage_7d)}%</span><br>
-      시총: ${fmt(m.market_cap?.usd, 0)} USD<br>
-      순환: ${fmt(m.circulating_supply, 0)}<br>
-      최대: ${fmt(m.total_supply || m.max_supply || 0, 0)}
-    `;
-  } catch (e) {
-    $('meta').textContent = '메타 정보를 불러올 수 없습니다.';
-  }
+function renderMeta() {
+  const coin = state.data?.coins?.[state.symbol];
+  if (!coin) { $('meta').textContent = '종목을 선택하세요.'; return; }
+  const wrap = $('meta');
+  const items = [
+    ['이름', `${coin.name} (${(coin.symbol || '').toUpperCase()})`],
+    ['현재가', fmt(coin.current_price, coin.current_price < 1 ? 6 : 2) + ' USD'],
+    ['24h', `${fmt(coin.change_24h)}%`],
+    ['7일', `${fmt(coin.change_7d)}%`],
+    ['시총', fmt(coin.market_cap, 0) + ' USD'],
+    ['순환', fmt(coin.circulating_supply, 0)],
+    ['최대', fmt(coin.max_supply || coin.total_supply || 0, 0)]
+  ];
+  wrap.innerHTML = '<div class="meta-grid">' + items.map(([k,v]) => {
+    const cls = typeof v === 'string' && v.includes('%') && !v.startsWith('-') ? 'plus' : (typeof v === 'string' && v.startsWith('-') ? 'minus' : '');
+    return `<div class="meta-item"><div class="hint">${k}</div><div class="${cls}">${v}</div></div>`;
+  }).join('') + '</div>';
 }
 
 function calcSMA(data, period) {
@@ -170,24 +199,7 @@ function calcSMA(data, period) {
   return out;
 }
 
-function renderList() {
-  const wrap = $('coinList');
-  wrap.innerHTML = Object.keys(COIN_NAMES).map(k => {
-    const active = COIN_MAP[k] === state.coinId ? 'active' : '';
-    return `<li class="${active}" data-id="${COIN_MAP[k]}" data-key="${k}">${COIN_NAMES[k]}</li>`;
-  }).join('');
-
-  wrap.querySelectorAll('li').forEach(el => {
-    el.onclick = () => {
-      state.coinId = el.dataset.id;
-      renderList();
-      load();
-    };
-  });
-}
-
-renderList();
-load();
+load('btc');
 </script>
 </body>
 </html>
