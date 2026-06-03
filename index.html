@@ -16,52 +16,51 @@
         .card { background: #1e293b; border-radius: 12px; padding: 20px; }
         .card.full { grid-column: 1 / -1; }
         h2 { color: #f1f5f9; margin-bottom: 16px; font-size: 1.2em; }
-        .input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .input-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         input, select, button { padding: 10px 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; }
         input:focus, select:focus { outline: 2px solid #3b82f6; }
         button { background: #3b82f6; border: none; cursor: pointer; font-weight: 600; }
         button:hover { background: #2563eb; }
         button.danger { background: #ef4444; }
         button.danger:hover { background: #dc2626; }
+        button.secondary { background: #475569; }
+        button.secondary:hover { background: #334155; }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
         th { color: #94a3b8; font-size: 0.85em; text-transform: uppercase; }
         tr:hover { background: #0f172a; }
         .positive { color: #10b981; }
         .negative { color: #ef4444; }
-        .signal-buy { color: #10b981; font-weight: bold; }
-        .signal-sell { color: #ef4444; font-weight: bold; }
-        .signal-hold { color: #f59e0b; font-weight: bold; }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
         .modal.active { display: flex; }
         .modal-content { background: #1e293b; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; }
         .modal-content h2 { margin-bottom: 20px; }
         .modal-content p { color: #94a3b8; margin-bottom: 16px; line-height: 1.6; }
         .modal-content a { color: #3b82f6; }
-        .hidden { display: none !important; }
-        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; }
-        .tag-buy { background: #064e3b; color: #10b981; }
-        .tag-sell { background: #7f1d1d; color: #ef4444; }
-        .tag-hold { background: #78350f; color: #f59e0b; }
+        .mode-switch { display: flex; gap: 8px; margin-top: 12px; }
+        .mode-switch button { flex: 1; font-size: 0.9em; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📈 Stock Dashboard</h1>
-        
-        <div class="notice">
-            ⚠️ <strong>Alpha Vantage 무료 API</strong> — 1일 25회 호출 제한이 있습니다. API 키는 브라우저에만 저장됩니다.
+
+        <div class="notice" id="notice">
+            🎯 <strong>데모 모드</strong> — 샘플 데이터로 작동 중입니다. 실제 데이터는 API 키를 입력하세요.
+            <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">API 키 설정</button>
         </div>
 
         <!-- API Key Modal -->
-        <div id="apiModal" class="modal active">
+        <div id="apiModal" class="modal">
             <div class="modal-content">
                 <h2>API 키 설정</h2>
-                <p>Alpha Vantage 무료 키를 발급받아 입력해주세요.</p>
+                <p>데모 모드(내장 샘플 데이터)는 API 키 없이 바로 사용할 수 있습니다.</p>
+                <p>실제 주가 데이터를 사용하려면 Alpha Vantage 키가 필요합니다.</p>
                 <p><a href="https://www.alphavantage.co/support/#api-key" target="_blank">무료 키 발급 →</a></p>
                 <div class="input-row">
-                    <input type="text" id="apiKeyInput" placeholder="API 키 입력" style="flex:1;">
+                    <input type="text" id="apiKeyInput" placeholder="API 키 입력 (선택)" style="flex:1;">
                     <button onclick="saveApiKey()">저장</button>
+                    <button class="secondary" onclick="useDemo()">데모로 계속</button>
                 </div>
             </div>
         </div>
@@ -72,6 +71,7 @@
             <div class="input-row">
                 <input type="text" id="watchlistTicker" placeholder="종목 코드 (예: AAPL, 005930.KS)">
                 <button onclick="addWatchlist()">추가</button>
+                <button class="secondary" onclick="loadWatchlist()">새로고침</button>
             </div>
             <div id="watchlistTable"></div>
         </div>
@@ -91,13 +91,13 @@
         <!-- Single Chart + Signal -->
         <div class="grid">
             <div class="card">
-                <h2>📈 가격 차트 + SMA</h2>
+                <h2>📈 가격 차트 + 지표</h2>
                 <div class="input-row">
                     <input type="text" id="chartTicker" placeholder="종목 코드" value="AAPL">
                     <select id="chartRange">
                         <option value="3mo">3개월</option>
                         <option value="6mo">6개월</option>
-                        <option value="1y">1년</option>
+                        <option value="1y" selected>1년</option>
                         <option value="2y">2년</option>
                     </select>
                     <button onclick="loadChart()">로드</button>
@@ -122,75 +122,158 @@
         </div>
 
         <div style="text-align: center; color: #64748b; padding: 20px;">
-            Stock Dashboard | Data: Alpha Vantage | Built with Chart.js
+            Stock Dashboard | Demo Mode | Built with Chart.js
         </div>
     </div>
 
     <script>
-        const STORAGE_KEY = 'stock_dashboard_config';
+        const STORAGE_KEY = 'stock_dashboard_v2';
         let config = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         let apiKey = config.apiKey || '';
         let watchlist = config.watchlist || ['AAPL', 'MSFT', '005930.KS', 'BTC-USD'];
+        let isDemo = config.demo !== false;
         let callCount = 0;
         let priceChart = null;
         let compareChart = null;
 
-        // Show API modal if no key
-        if (!apiKey) document.getElementById('apiModal').classList.add('active');
+        // Init
+        function init() {
+            if (!apiKey && isDemo) {
+                document.getElementById('apiModal').classList.add('active');
+            }
+            updateNotice();
+            loadWatchlist();
+        }
+
+        function updateNotice() {
+            const notice = document.getElementById('notice');
+            if (isDemo) {
+                notice.innerHTML = '🎯 <strong>데모 모드</strong> — 샘플 데이터로 작동 중입니다. <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">API 키 설정</button>';
+            } else {
+                notice.innerHTML = `🔑 <strong>실제 데이터 모드</strong> — API 키: ${apiKey.slice(0,8)}... | 오늘 호출: ${callCount}/25 <button class="secondary" onclick="openApiModal()" style="margin-left:auto;">변경</button>`;
+            }
+        }
+
+        function openApiModal() {
+            document.getElementById('apiModal').classList.add('active');
+            document.getElementById('apiKeyInput').value = apiKey;
+        }
 
         function saveApiKey() {
-            apiKey = document.getElementById('apiKeyInput').value.trim();
-            if (!apiKey) { alert('API 키를 입력해주세요.'); return; }
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (!key) { alert('API 키를 입력해주세요.'); return; }
+            apiKey = key;
+            isDemo = false;
             config.apiKey = apiKey;
+            config.demo = false;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
             document.getElementById('apiModal').classList.remove('active');
+            updateNotice();
+            loadWatchlist();
+        }
+
+        function useDemo() {
+            isDemo = true;
+            config.demo = true;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            document.getElementById('apiModal').classList.remove('active');
+            updateNotice();
             loadWatchlist();
         }
 
         function saveConfig() {
             config.watchlist = watchlist;
+            config.demo = isDemo;
+            config.apiKey = apiKey;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
         }
 
+        // ---------- DEMO DATA ----------
+        function generateDemoPrice(base, days = 365) {
+            const data = [];
+            let price = base;
+            const now = new Date();
+            for (let i = days; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                price = price * (1 + (Math.random() - 0.48) * 0.03);
+                data.push({
+                    date: date.toISOString().split('T')[0],
+                    close: price,
+                    high: price * (1 + Math.random() * 0.01),
+                    low: price * (1 - Math.random() * 0.01),
+                    volume: Math.floor(Math.random() * 50000000 + 10000000)
+                });
+            }
+            return data;
+        }
+        const DEMO_PRICES = {
+            'AAPL': generateDemoPrice(180),
+            'MSFT': generateDemoPrice(400),
+            'GOOGL': generateDemoPrice(140),
+            '005930.KS': generateDemoPrice(70000),
+            'BTC-USD': generateDemoPrice(65000)
+        };
+        function getDemoQuote(ticker) {
+            const data = DEMO_PRICES[ticker] || generateDemoPrice(100);
+            const current = data[data.length - 1].close;
+            const prev = data[data.length - 2].close;
+            return {
+                ticker,
+                price: current,
+                change: current - prev,
+                changePercent: ((current - prev) / prev) * 100,
+                volume: data[data.length - 1].volume,
+                high: Math.max(...data.slice(-30).map(d => d.high)),
+                low: Math.min(...data.slice(-30).map(d => d.low))
+            };
+        }
+        function getDemoSeries(ticker, days = 365) {
+            if (DEMO_PRICES[ticker]) return DEMO_PRICES[ticker].slice(-days);
+            return generateDemoPrice(100, days);
+        }
+
+        // ---------- API CALL ----------
         async function alphaQuery(params) {
             if (callCount >= 25) throw new Error('일일 API 호출 한도(25회) 초과');
             const url = `https://www.alphavantage.co/query?${new URLSearchParams({...params, apikey: apiKey})}`;
             const res = await fetch(url);
             callCount++;
-            updateCallCount();
+            updateNotice();
             if (!res.ok) throw new Error('API 요청 실패');
             return res.json();
         }
 
-        function updateCallCount() {
-            document.querySelector('.notice').innerHTML = `⚠️ <strong>Alpha Vantage 무료 API</strong> — 오늘 호출: ${callCount}/25 | 키: ${apiKey.slice(0,8)}...`;
-        }
-
-        // Watchlist
+        // ---------- WATCHLIST ----------
         async function loadWatchlist() {
             const table = document.getElementById('watchlistTable');
             if (watchlist.length === 0) {
                 table.innerHTML = '<p style="color:#64748b; text-align:center; padding:20px;">관심 종목을 추가해주세요.</p>';
                 return;
             }
-            
-            table.innerHTML = '<table><thead><tr><th>종목</th><th>현재가</th><th>변동률</th><th>거래량</th></tr></thead><tbody id="wlBody"></tbody></table>';
+            table.innerHTML = '<table><thead><tr><th>종목</th><th>현재가</th><th>변동률</th><th>거래량</th><th>기간 고</th><th>기간 저</th></tr></thead><tbody id="wlBody"></tbody></table>';
             const tbody = document.getElementById('wlBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">⏳ 불러오는 중...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">⏳ 불러오는 중...</td></tr>';
 
             const promises = watchlist.map(async ticker => {
                 try {
-                    const data = await alphaQuery({ function: 'GLOBAL_QUOTE', symbol: ticker });
-                    if (data['Error Message']) return { ticker, error: data['Error Message'] };
-                    const q = data['Global Quote'];
-                    if (!q || Object.keys(q).length === 0) return { ticker, error: '데이터 없음' };
-                    return {
-                        ticker,
-                        price: parseFloat(q['05. price']),
-                        change: parseFloat(q['09. change']),
-                        changePercent: parseFloat(q['10. change percent'].replace('%','')),
-                        volume: q['06. volume']
-                    };
+                    let quote;
+                    if (isDemo) {
+                        quote = getDemoQuote(ticker);
+                    } else {
+                        const data = await alphaQuery({ function: 'GLOBAL_QUOTE', symbol: ticker });
+                        if (data['Error Message']) return { ticker, error: data['Error Message'] };
+                        const q = data['Global Quote'];
+                        if (!q || Object.keys(q).length === 0) return { ticker, error: '데이터 없음' };
+                        quote = {
+                            ticker,
+                            price: parseFloat(q['05. price']),
+                            change: parseFloat(q['09. change']),
+                            changePercent: parseFloat(q['10. change percent'].replace('%','')),
+                            volume: q['06. volume']
+                        };
+                    }
+                    return { ...quote, high: quote.high || 0, low: quote.low || 0 };
                 } catch (e) {
                     return { ticker, error: e.message };
                 }
@@ -198,13 +281,15 @@
 
             const results = await Promise.all(promises);
             tbody.innerHTML = results.map(r => {
-                if (r.error) return `<tr><td><strong>${r.ticker}</strong> <button class="danger" onclick="removeWatchlist('${r.ticker}')" style="padding:4px 8px; font-size:0.8em;">삭제</button></td><td colspan="3" style="color:#ef4444;">${r.error}</td></tr>`;
+                if (r.error) return `<tr><td><strong>${r.ticker}</strong> <button class="danger" onclick="removeWatchlist('${r.ticker}')" style="padding:4px 8px; font-size:0.8em;">삭제</button></td><td colspan="5" style="color:#ef4444;">${r.error}</td></tr>`;
                 const cls = r.change >= 0 ? 'positive' : 'negative';
                 return `<tr>
                     <td><strong>${r.ticker}</strong> <button class="danger" onclick="removeWatchlist('${r.ticker}')" style="padding:4px 8px; font-size:0.8em;">삭제</button></td>
                     <td>$${r.price.toFixed(2)}</td>
                     <td class="${cls}">${r.change >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%</td>
-                    <td>${parseInt(r.volume).toLocaleString()}</td>
+                    <td>${r.volume ? parseInt(r.volume).toLocaleString() : '-'}</td>
+                    <td>$${(r.high || 0).toFixed(2)}</td>
+                    <td>$${(r.low || 0).toFixed(2)}</td>
                 </tr>`;
             }).join('');
         }
@@ -226,7 +311,7 @@
             loadWatchlist();
         }
 
-        // Compare Chart
+        // ---------- COMPARE CHART ----------
         async function loadCompare() {
             const tickers = [document.getElementById('compare1').value, document.getElementById('compare2').value, document.getElementById('compare3').value].filter(Boolean);
             if (tickers.length < 2) { alert('2개 이상의 종목을 입력해주세요.'); return; }
@@ -239,26 +324,37 @@
             
             for (let i = 0; i < tickers.length; i++) {
                 try {
-                    const data = await alphaQuery({
-                        function: 'TIME_SERIES_DAILY',
-                        symbol: tickers[i],
-                        outputsize: 'full'
-                    });
-                    const key = Object.keys(data).find(k => k.includes('Time Series'));
-                    if (!key) { console.warn(tickers[i], '데이터 없음'); continue; }
-                    
-                    const series = data[key];
-                    const dates = Object.keys(series).sort();
-                    const base = parseFloat(series[dates[0]]['4. close']);
-                    const normalized = dates.slice(-90).map(d => (parseFloat(series[d]['4. close']) / base * 100));
-                    
+                    let series;
+                    if (isDemo) {
+                        series = getDemoSeries(tickers[i], 90);
+                    } else {
+                        const data = await alphaQuery({
+                            function: 'TIME_SERIES_DAILY',
+                            symbol: tickers[i],
+                            outputsize: 'full'
+                        });
+                        const key = Object.keys(data).find(k => k.includes('Time Series'));
+                        if (!key) { console.warn(tickers[i], '데이터 없음'); continue; }
+                        const raw = data[key];
+                        const dates = Object.keys(raw).sort();
+                        series = dates.slice(-90).map(d => ({
+                            date: d,
+                            close: parseFloat(raw[d]['4. close'])
+                        }));
+                    }
+                    const base = series[0].close;
+                    const normalized = series.map(d => (d.close / base * 100));
+                    const labels = series.map(d => d.date);
+
                     datasets.push({
                         label: tickers[i],
                         data: normalized,
                         borderColor: colors[i % colors.length],
+                        backgroundColor: colors[i % colors.length] + '20',
                         borderWidth: 2,
                         tension: 0.1,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        fill: false
                     });
                 } catch (e) {
                     console.error(tickers[i], e.message);
@@ -267,19 +363,22 @@
 
             compareChart = new Chart(ctx, {
                 type: 'line',
-                data: { labels: Array.from({length: 90}, (_, i) => i), datasets },
+                data: { labels: datasets[0]?.labels || [], datasets },
                 options: {
                     responsive: true,
-                    plugins: { legend: { labels: { color: '#e2e8f0' } }, title: { display: true, text: '정규화 가격 비교 (시작=100)', color: '#f1f5f9' } },
+                    plugins: { 
+                        legend: { labels: { color: '#e2e8f0' } }, 
+                        title: { display: true, text: '정규화 가격 비교 (시작=100)', color: '#f1f5f9' } 
+                    },
                     scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                        x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
                         y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
                     }
                 }
             });
         }
 
-        // Single Chart + RSI
+        // ---------- SINGLE CHART + SIGNALS ----------
         async function loadChart() {
             const ticker = document.getElementById('chartTicker').value.trim().toUpperCase();
             const range = document.getElementById('chartRange').value;
@@ -289,18 +388,27 @@
             if (priceChart) priceChart.destroy();
 
             try {
-                const data = await alphaQuery({
-                    function: 'TIME_SERIES_DAILY',
-                    symbol: ticker,
-                    outputsize: range === '3mo' ? 'compact' : 'full'
-                });
-                const key = Object.keys(data).find(k => k.includes('Time Series'));
-                if (!key) throw new Error('데이터를 찾을 수 없습니다.');
-                
-                const series = data[key];
-                const dates = Object.keys(series).sort().slice(-180);
-                const closes = dates.map(d => parseFloat(series[d]['4. close']));
-                
+                let series;
+                if (isDemo) {
+                    series = getDemoSeries(ticker, 365);
+                } else {
+                    const data = await alphaQuery({
+                        function: 'TIME_SERIES_DAILY',
+                        symbol: ticker,
+                        outputsize: range === '3mo' ? 'compact' : 'full'
+                    });
+                    const key = Object.keys(data).find(k => k.includes('Time Series'));
+                    if (!key) throw new Error('데이터를 찾을 수 없습니다.');
+                    const raw = data[key];
+                    const dates = Object.keys(raw).sort();
+                    series = dates.map(d => ({
+                        date: d,
+                        close: parseFloat(raw[d]['4. close'])
+                    }));
+                }
+
+                const closes = series.map(d => d.close);
+                const dates = series.map(d => d.date);
                 const sma20 = calcSMA(closes, 20);
                 const sma60 = calcSMA(closes, 60);
                 const rsi = calcRSI(closes, 14);
@@ -309,19 +417,19 @@
                 const lastRSI = rsi[rsi.length - 1];
                 const lastSMA20 = sma20.filter(v => v !== null).pop();
                 const lastSMA60 = sma60.filter(v => v !== null).pop();
-                let signal = 'HOLD', signalClass = 'signal-hold', reasons = [];
+                let signal = 'HOLD', signalEmoji = '➖', reasons = [];
                 
-                if (lastRSI < 30) { signal = 'BUY'; signalClass = 'signal-buy'; reasons.push('RSI 과매도'); }
-                else if (lastRSI > 70) { signal = 'SELL'; signalClass = 'signal-sell'; reasons.push('RSI 과매수'); }
+                if (lastRSI < 30) { signal = 'BUY'; signalEmoji = '🟢'; reasons.push('RSI 과매도'); }
+                else if (lastRSI > 70) { signal = 'SELL'; signalEmoji = '🔴'; reasons.push('RSI 과매수'); }
                 
                 if (lastSMA20 && lastSMA60) {
-                    if (lastSMA20 > lastSMA60 && signal === 'HOLD') { signal = 'BUY'; signalClass = 'signal-buy'; reasons.push('골든크로스'); }
-                    else if (lastSMA20 < lastSMA60 && signal === 'HOLD') { signal = 'SELL'; signalClass = 'signal-sell'; reasons.push('데드크로스'); }
+                    if (lastSMA20 > lastSMA60) { if (signal === 'HOLD') { signal = 'BUY'; signalEmoji = '🟢'; } reasons.push('골든크로스'); }
+                    else if (lastSMA20 < lastSMA60) { if (signal === 'HOLD') { signal = 'SELL'; signalEmoji = '🔴'; } reasons.push('데드크로스'); }
                 }
 
                 document.getElementById('signalBox').innerHTML = `
-                    <div class="signal-${signal.toLowerCase()} tag-${signal.toLowerCase()}" style="font-size:1.5em; padding:16px;">${signal === 'BUY' ? '🟢' : signal === 'SELL' ? '🔴' : '➖'} ${signal}</div>
-                    <div style="margin-top:12px; font-size:0.9em; color:#94a3b8;">RSI: ${lastRSI.toFixed(1)} | ${reasons.join(', ')}</div>
+                    <div style="font-size:1.8em; margin-bottom:8px;">${signalEmoji} ${signal}</div>
+                    <div style="font-size:0.9em; color:#94a3b8;">RSI: ${lastRSI.toFixed(1)} | ${reasons.join(', ')}</div>
                 `;
 
                 priceChart = new Chart(ctx, {
@@ -347,10 +455,11 @@
                     }
                 });
             } catch (e) {
-                document.getElementById('signalBox').innerHTML = `<div class="error" style="color:#ef4444;">❌ ${e.message}</div>`;
+                document.getElementById('signalBox').innerHTML = `<div style="color:#ef4444;">❌ ${e.message}</div>`;
             }
         }
 
+        // ---------- INDICATORS ----------
         function calcSMA(data, period) {
             const sma = [];
             for (let i = 0; i < data.length; i++) {
@@ -381,13 +490,11 @@
             return rsi;
         }
 
-        // Enter key handlers
+        // ---------- UTILS ----------
         document.getElementById('apiKeyInput')?.addEventListener('keydown', e => e.key === 'Enter' && saveApiKey());
         document.getElementById('watchlistTicker')?.addEventListener('keydown', e => e.key === 'Enter' && addWatchlist());
 
-        // Init
-        loadWatchlist();
-        updateCallCount();
+        init();
     </script>
 </body>
 </html>
