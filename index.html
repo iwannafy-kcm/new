@@ -156,7 +156,7 @@
 <script>
 const STORAGE_KEY = 'krx_stock_v4';
 let config = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-let watchlist = config.watchlist || ['005930', '000660', '005380', '035720', '012330', '051910', '068270'];
+let watchlist = config.watchlist || ['005930', '000660', '005380', '035720', '012330', '051910', '068270', '206640'];
 let stockData = null;
 let cryptoData = null;
 let priceChart = null, compareChart = null, coinPriceChart = null, coinVolChart = null;
@@ -170,6 +170,7 @@ const QUICK_TICKERS = [
   { code: '012330', name: '현대모비스' },
   { code: '051910', name: 'LG화학' },
   { code: '068270', name: '셀트리온' },
+  { code: '206640', name: '바디텍메드' }
 ];
 
 const COIN_NAMES = {

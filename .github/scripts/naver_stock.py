@@ -86,7 +86,7 @@ def fetch_naver_stock(ticker, days=365):
     return unique
 
 def fetch_all_tickers():
-    tickers = ['005930', '000660', '005380', '035420', '035720', '012330', '051910', '068270']
+    tickers = ['005930', '000660', '005380', '035420', '035720', '012330', '051910', '068270', '206640']
     all_data = {}
     
     for ticker in tickers:
